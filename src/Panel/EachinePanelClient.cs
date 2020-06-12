@@ -86,9 +86,12 @@ public class EachinePanelClient
 
     public void setFrame(EachinePanelFrame frame)
     {
-        this.mutex.WaitOne();
-        this.frame = frame;
-        this.mutex.ReleaseMutex();
+        if(frame.IsContentCorrect())
+        {
+            this.mutex.WaitOne();
+            this.frame = frame;
+            this.mutex.ReleaseMutex();
+        }
     }
 
     public void receiveData()
@@ -104,22 +107,21 @@ public class EachinePanelClient
                     this.client.Connect(this.serverEndpoint);
                     this.client.Send(EachinePanelClient.DATA_TO_SEND);
                 }
-                long currentTimestamp = Timer.GetTimestamp();
-                long differenceTs = Timer.getElapsedTime(currentTimestamp, this.lastDataReceivedTimestamp, Timer.Type.MILLISECOND);
-                if (EachinePanelClient.DATA_REFRESH < differenceTs)
+
+                long differenceTs = Timer.getElapsedTime(Timer.GetTimestamp(), this.lastDataReceivedTimestamp, Timer.Type.MILLISECOND);
+                if (EachinePanelClient.DATA_REFRESH > differenceTs)
                 {
                     int millisecondsToSleep = (int)(EachinePanelClient.DATA_REFRESH - differenceTs);
                     Thread.Sleep(millisecondsToSleep);
                 }
+
                 this.lastDataReceivedTimestamp = Timer.GetTimestamp();
+
                 // Receive data package
                 byte[] rawContent = new byte[EachinePanelFrame.BUFFER_LENGTH];
                 int byteReceived = this.client.Receive(rawContent);
                 EachinePanelFrame currentFrame = new EachinePanelFrame(rawContent);
-                if (currentFrame.IsContentCorrect())
-                {
-                    this.setFrame(currentFrame);
-                }
+                this.setFrame(currentFrame);
             }
             catch (SocketException)
             {
