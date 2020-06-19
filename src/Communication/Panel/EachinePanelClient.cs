@@ -53,6 +53,11 @@ public class EachinePanelClient
     public void start()
     {
         this.mutex.WaitOne();
+        if(this.continueRecivingData)
+        {
+            // Thread already started
+            return;
+        }
         this.continueRecivingData = true;
         this.socketThread.Start();
         this.mutex.ReleaseMutex();
