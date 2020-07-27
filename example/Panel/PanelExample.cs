@@ -1,6 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
 
@@ -22,7 +20,7 @@ public class PanelExample : MonoBehaviour
     void Update()
     {
         // Get the most recent frame and update unity text objects with the current value
-        EachinePanelFrame frame = client.getFrame();
+        EachinePanelFrame frame = (EachinePanelFrame)client.getFrame();
         yawText.text = "Yaw: " + frame.getYaw();
         rollText.text = "Roll: " + frame.getRoll();
         pitchText.text = "Pitch: " + frame.getPitch();
@@ -40,6 +38,7 @@ public class PanelExample : MonoBehaviour
 
     void OnDestroy()
     {
+        // Stop receiving data
         this.client.stop();
     }
 }

@@ -1,9 +1,8 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System;
 
 
-public class EachinePanelFrame
+public class EachinePanelFrame : AbstractEachineFrame
 {
     public const byte BUFFER_LENGTH = 31;
     private static readonly Dictionary<byte, string> FLIGHT_MODE_GROUP = new Dictionary<byte, string>()
@@ -43,34 +42,31 @@ public class EachinePanelFrame
     private const double SIMPLE_FLOAT = 0.1;
     private const double COMPLEX_FLOAT = 0.32809948882276646;
 
-    private byte[] rawContent;
-
     // Cooked data
     private double roll, pitch, yaw, distance, speedH, altitude, speedV, gpsLatitude, gpsLongitude;
     private byte gpsNumberStellites, battery, checksum;
     private string flightMode, gpsSignal;
 
-    public EachinePanelFrame()
+    public EachinePanelFrame() : this(new List<byte[]>(){
+        new byte[EachinePanelFrame.BUFFER_LENGTH]
+    })
     {
-        // Default value
-        this.rawContent = new byte[EachinePanelFrame.BUFFER_LENGTH];
-    }
-    public EachinePanelFrame(byte[] rawContent)
-    {
-        // RawContent
-        this.rawContent = rawContent;
 
+    }
+    
+    public EachinePanelFrame(List<byte[]> sequence) : base(sequence)
+    {
         // Roll unsigned 2 bytes
-        this.roll = BitConverter.ToUInt16(rawContent, 6) * EachinePanelFrame.SIMPLE_FLOAT;
+        this.roll = BitConverter.ToUInt16(this.sequence, 6) * EachinePanelFrame.SIMPLE_FLOAT;
 
         // Pitch unsigned 2 bytes
-        this.pitch = BitConverter.ToUInt16(rawContent, 8) * EachinePanelFrame.SIMPLE_FLOAT;
+        this.pitch = BitConverter.ToUInt16(this.sequence, 8) * EachinePanelFrame.SIMPLE_FLOAT;
 
         // Yaw signed 2 bytes
-        this.yaw = BitConverter.ToInt16(rawContent, 10) * EachinePanelFrame.SIMPLE_FLOAT;
+        this.yaw = BitConverter.ToInt16(this.sequence, 10) * EachinePanelFrame.SIMPLE_FLOAT;
 
         // Flight mode string
-        byte rawFlightMode = rawContent[12];
+        byte rawFlightMode = this.sequence[12];
 
         // Eg: 0x36
         // Flight group will be 3
@@ -92,27 +88,27 @@ public class EachinePanelFrame
         this.flightMode = flightGroup + "/" + flightType;
 
         // Distance unsigned 2 bytes
-        this.distance = Math.Round(BitConverter.ToUInt16(rawContent, 13) * EachinePanelFrame.COMPLEX_FLOAT, 1);
+        this.distance = Math.Round(BitConverter.ToUInt16(this.sequence, 13) * EachinePanelFrame.COMPLEX_FLOAT, 1);
 
         // Horizontal speed signed 1 byte
         // There's no method to convert byte to signed byte
         // Use temporal byte
-        byte[] speedHBuffer = new byte[] { 0x0, rawContent[15] };
+        byte[] speedHBuffer = new byte[] { 0x0, this.sequence[15] };
         // After convert to signed byte remove the temporal byte with bitwise right shift
         this.speedH = Math.Round((BitConverter.ToInt16(speedHBuffer, 0) >> 8) * EachinePanelFrame.COMPLEX_FLOAT, 1);
 
         // Altitude signed 2 bytes
-        this.altitude = Math.Round(BitConverter.ToInt16(rawContent, 16) * EachinePanelFrame.COMPLEX_FLOAT, 1);
+        this.altitude = Math.Round(BitConverter.ToInt16(this.sequence, 16) * EachinePanelFrame.COMPLEX_FLOAT, 1);
 
         // SpeedV signed 1 byte
-        byte[] speedVBuffer = new byte[] { 0x0, rawContent[18] };
+        byte[] speedVBuffer = new byte[] { 0x0, this.sequence[18] };
         this.speedV = Math.Round((BitConverter.ToInt16(speedVBuffer, 0) >> 8) * EachinePanelFrame.COMPLEX_FLOAT, 1);
 
         // Number of satellites GPS n/s unsigned 1 byte
-        this.gpsNumberStellites = rawContent[19];
+        this.gpsNumberStellites = this.sequence[19];
 
         // Gps signal unsigned 1 byte (0 or 1)
-        byte gpsSignalValue = rawContent[20];
+        byte gpsSignalValue = this.sequence[20];
         string gpsSignal = EachinePanelFrame.GPS_SIGNAL[0];
         if (EachinePanelFrame.GPS_SIGNAL.ContainsKey(gpsSignalValue))
         {
@@ -121,19 +117,19 @@ public class EachinePanelFrame
         this.gpsSignal = gpsSignal;
 
         // Gps latitude signed 4 bytes
-        this.gpsLatitude = Math.Round(BitConverter.ToInt32(rawContent, 21) * EachinePanelFrame.COMPLEX_FLOAT, 6);
+        this.gpsLatitude = Math.Round(BitConverter.ToInt32(this.sequence, 21) * EachinePanelFrame.COMPLEX_FLOAT, 6);
 
         // Gps longitude signed 4 bytes
-        this.gpsLongitude = Math.Round(BitConverter.ToInt32(rawContent, 25) * EachinePanelFrame.COMPLEX_FLOAT, 6);
+        this.gpsLongitude = Math.Round(BitConverter.ToInt32(this.sequence, 25) * EachinePanelFrame.COMPLEX_FLOAT, 6);
 
         // Battery percentage unsigned 1 byte
-        this.battery = rawContent[29];
+        this.battery = this.sequence[29];
 
         // Checksum of the package unsigned 1 byte
-        this.checksum = rawContent[30];
+        this.checksum = this.sequence[30];
     }
 
-    public EachinePanelFrame(EachinePanelFrame frame) : this(frame.rawContent)
+    public EachinePanelFrame(AbstractEachineFrame frame) : this(new List<byte[]>(){((EachinePanelFrame)frame).sequence})
     {
 
     }
@@ -142,9 +138,10 @@ public class EachinePanelFrame
     {
         byte computeChecksum = 0;
 
-        for(byte i = 3; i < this.rawContent.Length - 1; i++)
+        // Skip lewei signature
+        for(byte i = 3; i < this.sequence.Length - 1; i++)
         {
-            computeChecksum ^= this.rawContent[i];
+            computeChecksum ^= this.sequence[i];
         }
 
         return computeChecksum;
@@ -154,11 +151,6 @@ public class EachinePanelFrame
     {
         // Computed checksum and if the checksum inside the package and the computed checksum is the same, the package is correct
         return this.checksum == this.computeChecksum();
-    }
-
-    public byte[] getRawContent()
-    {
-        return this.rawContent;
     }
 
     public double getRoll()
