@@ -1,4 +1,4 @@
-# Eachine e511s
+# Reverse Engineering an Eachine e511s drone
 Get the following data from eachine e511s drone.
 - Vertical speed
 - Horizontal speed
